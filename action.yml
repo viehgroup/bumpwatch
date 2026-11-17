@@ -7,10 +7,10 @@ branding:
 
 inputs:
   base:
-    description: Git ref or SHA to compare against (default: the pull request's base commit)
+    description: "Git ref or SHA to compare against (default: the pull request's base commit)"
     default: ""
   path:
-    description: Repository directory (default: the workspace)
+    description: "Repository directory (default: the workspace)"
     default: "."
   fail-on:
     description: Fail the job at this severity or above (high, medium, low, never)

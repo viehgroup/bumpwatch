@@ -1,0 +1,53 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    # 24.04 still ships Python 3.9; ubuntu-latest (26.04) does not
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s . -p "test_*.py" -v
+
+  live:
+    # Against the real registries: an honest update passes, a pulled hijack fails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Honest update is clean
+        run: python3 -m bumpwatch check pypi requests 2.32.3 2.32.4
+      - name: Hijacked axios 1.14.1 is caught
+        run: |
+          if python3 -m bumpwatch inspect npm axios 1.14.1; then
+            echo "expected bumpwatch to flag axios 1.14.1"; exit 1
+          fi
+
+  action:
+    # Run the action itself on a throwaway repo with a real lockfile bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Make a repo with a dependency bump
+        run: |
+          mkdir demo && cd demo && git init -q
+          git config user.email ci@example.com && git config user.name ci
+          echo "requests==2.32.3" > requirements.txt && git add . && git commit -qm base
+          echo "requests==2.32.4" > requirements.txt && git commit -qam bump
+          echo "BASE=$(git rev-parse HEAD~1)" >> "$GITHUB_ENV"
+      - uses: ./
+        with:
+          path: demo
+          base: ${{ env.BASE }}

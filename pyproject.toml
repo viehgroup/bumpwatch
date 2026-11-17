@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bumpwatch"
+version = "0.1.0"
+description = "Check dependency updates for hijacked releases before you merge them"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "VIEH Security Team" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["security", "supply-chain", "npm", "pypi", "dependabot", "renovate", "provenance", "malware"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Security",
+    "Environment :: Console",
+]
+
+[project.scripts]
+bumpwatch = "bumpwatch.cli:main"
+
+[tool.setuptools]
+packages = ["bumpwatch"]

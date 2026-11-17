@@ -1,0 +1,62 @@
+name: bumpwatch
+description: Check dependency updates in a pull request for hijacked releases before they're merged
+author: VIEH Security Team
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  base:
+    description: Git ref or SHA to compare against (default: the pull request's base commit)
+    default: ""
+  path:
+    description: Repository directory (default: the workspace)
+    default: "."
+  fail-on:
+    description: Fail the job at this severity or above (high, medium, low, never)
+    default: high
+  config:
+    description: Policy file
+    default: .bumpwatch.json
+  comment:
+    description: Also post the summary as a pull request comment (needs pull-requests write permission)
+    default: "false"
+  token:
+    description: Token for posting the comment
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check dependency updates
+      shell: bash
+      env:
+        BW_BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+        BW_PATH: ${{ inputs.path }}
+        BW_FAIL_ON: ${{ inputs.fail-on }}
+        BW_CONFIG: ${{ inputs.config }}
+        BW_COMMENT: ${{ inputs.comment }}
+        BW_PR: ${{ github.event.pull_request.number }}
+        GH_TOKEN: ${{ inputs.token }}
+        PYTHONPATH: ${{ github.action_path }}
+      run: |
+        if [ -z "$BW_BASE" ]; then
+          echo "bumpwatch: no base to compare against; set the 'base' input outside pull requests" >&2
+          exit 2
+        fi
+        # actions/checkout fetches one commit by default; we need the base too
+        git -C "$BW_PATH" cat-file -e "$BW_BASE^{commit}" 2>/dev/null \
+          || git -C "$BW_PATH" fetch --no-tags --depth=1 origin "$BW_BASE"
+        cd "$BW_PATH"
+        summary="$RUNNER_TEMP/bumpwatch.md"
+        : > "$summary"
+        status=0
+        python3 -m bumpwatch pr --base "$BW_BASE" --format github --config "$BW_CONFIG" \
+          --summary "$summary" --fail-on "$BW_FAIL_ON" || status=$?
+        cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+        if [ "$BW_COMMENT" = "true" ] && [ -n "$BW_PR" ]; then
+          gh pr comment "$BW_PR" --body-file "$summary" --edit-last 2>/dev/null \
+            || gh pr comment "$BW_PR" --body-file "$summary" \
+            || echo "bumpwatch: couldn't post a comment (Dependabot PRs get a read-only token)" >&2
+        fi
+        exit $status
